@@ -52,8 +52,9 @@ public class MainActivity extends ActionBarActivity implements MainActivityFragm
             mTwoPane = false;
             getSupportActionBar().setElevation(0f);
         }
-
-        mFragment.setTwoPane(mTwoPane);
+        if (mFragment != null) {
+            mFragment.setTwoPane(mTwoPane);
+        }
         PopularMoviesSyncAdapter.initializeSyncAdapter(this);
     }
 
@@ -113,6 +114,10 @@ public class MainActivity extends ActionBarActivity implements MainActivityFragm
 
         if(sortOrder != null && !sortOrder.equals(mSortOrder)) {
             if ( null != mFragment ) {
+                mFragment.onSortOrderChanged();
+            } else {
+                mFragment = (MainActivityFragment) getSupportFragmentManager().findFragmentById(R.id.fragment);
+                mFragment.setTwoPane(mTwoPane);
                 mFragment.onSortOrderChanged();
             }
             mSortOrder = sortOrder;

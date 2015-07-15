@@ -20,6 +20,7 @@ import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -27,6 +28,8 @@ import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.youtube.player.YouTubeInitializationResult;
+import com.google.android.youtube.player.YouTubeStandalonePlayer;
 import com.popularmovies.app.adapter.CustomReviewsListAdapter;
 import com.popularmovies.app.adapter.CustomTrailersListAdapter;
 import com.popularmovies.app.data.PopularMoviesContract;
@@ -43,6 +46,9 @@ import java.util.Set;
 public class MovieDetailsActivityFragment extends Fragment  implements LoaderManager.LoaderCallbacks<Cursor>, View.OnClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
 
     private final String LOG_TAG = MovieDetailsActivityFragment.class.getSimpleName();
+    public static final String MOVIE_ID = "movie_id";
+    private static final int REQ_START_STANDALONE_PLAYER = 1;
+    private static final int REQ_RESOLVE_SERVICE_MISSING = 2;
 
     private ImageView mBackgroundImageView   = null;
     private TextView mMovieNameView     = null;
@@ -259,6 +265,28 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
 
         mMovieTrailersListView.setAdapter(mTrailersListAdapter);
         mMovieReviewsListView.setAdapter(mReviewsListAdapter);
+
+        mMovieTrailersListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+                final Cursor cursor = (Cursor) adapterView.getItemAtPosition(position);
+
+                String movieId = cursor.getString(COL_KEY);
+
+                Intent intent = YouTubeStandalonePlayer.createVideoIntent(
+                        getActivity(), Utility.DEVELOPER_KEY, movieId, 0, true, true);
+
+                if (intent != null) {
+                    if (Utility.canResolveIntent(intent, getActivity())) {
+                        startActivityForResult(intent, REQ_START_STANDALONE_PLAYER);
+                    } else {
+                        // Could not resolve the intent - must need to install or update the YouTube API service.
+                        YouTubeInitializationResult.SERVICE_MISSING
+                                .getErrorDialog(getActivity(), REQ_RESOLVE_SERVICE_MISSING).show();
+                    }
+                }
+            }
+        });
 
         mTrailersListAdapter.registerDataSetObserver(new DataSetObserver() {
             @Override

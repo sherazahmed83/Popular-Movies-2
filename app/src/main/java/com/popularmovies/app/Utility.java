@@ -1,7 +1,10 @@
 package com.popularmovies.app;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.preference.PreferenceManager;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +15,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Created by Sheraz on 7/10/2015.
@@ -22,6 +26,11 @@ public class Utility {
     private static final String IMAGE_BASE_URL = "http://image.tmdb.org/t/p/";
     private static final String IMAGE_SIZE = "w342";
     private static final String PATH_SEPARATOR = "/";
+    // Developer Key URL is below
+    //https://console.developers.google.com/project/popular-movies-2/apiui/credential?authuser=0#
+    public static final String DEVELOPER_KEY = "AIzaSyDpzDiD894g3Um10YZPz0HuqPlfMmpSwoY";
+    public static final String YOUTUBE_PACKAGE_NAME = "com.google.android.youtube";
+    public static final String YOUTUBE_CLASS_NAME = "com.google.android.youtube.WatchActivity";
 
 
     public static String getPreferredSortOrder(Context context) {
@@ -79,4 +88,40 @@ public class Utility {
         return (string == null || string.equals("null") || string.equals(""));
     }
 
+    public static boolean isAppInstalled(String uri, Context context) {
+        PackageManager pm = context.getPackageManager();
+        boolean installed = false;
+        try {
+            pm.getPackageInfo(uri, PackageManager.GET_ACTIVITIES);
+            installed = true;
+        } catch (PackageManager.NameNotFoundException e) {
+            installed = false;
+        }
+        return installed;
+    }
+
+    public static String getVideoHTML(String videoId) {
+
+        String html =
+                "<iframe class=\"youtube-player\" "
+                        + "style=\"border: 0; width: 100%; height: 95%;"
+                        + "padding:0px; margin:0px\" "
+                        + "id=\"ytplayer\" type=\"text/html\" "
+                        + "src=\"http://www.youtube.com/embed/" + videoId
+                        + "?fs=0\" frameborder=\"0\" " + "allowfullscreen autobuffer "
+                        + "controls onclick=\"this.play()\">\n" + "</iframe>\n";
+
+/**
+ * <iframe id="ytplayer" type="text/html" width="640" height="360"
+ * src="https://www.youtube.com/embed/WM5HccvYYQg" frameborder="0"
+ * allowfullscreen>
+ **/
+
+        return html;
+    }
+
+    public static boolean canResolveIntent(Intent intent, Context context) {
+        List<ResolveInfo> resolveInfo = context.getPackageManager().queryIntentActivities(intent, 0);
+        return resolveInfo != null && !resolveInfo.isEmpty();
+    }
 }
