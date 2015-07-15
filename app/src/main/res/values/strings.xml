@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Popular Movies</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_movie_details">MovieDetailsActivity</string>
+    <string name="label_text_button_favorite">MARK AS FAVORITE</string>
+    <string name="label_text_view_trailers">Trailers:</string>
+    <string name="label_text_view_reviews">Reviews:</string>
+    <string name="label_text_view_release_date">Release Date:</string>
+    <string name="label_text_view_duration">Duration:</string>
+    <string name="label_text_view_empty_trailers">No trailers available for this movie.</string>
+    <string name="label_text_view_empty_reviews">No reviews available for this movie.</string>
+    <string name="label_movie_marked_favorite">This movie is added to your Favorites.</string>
+    <string name="label_movie_marked_not_favorite">This movie is removed from your Favorites.</string>
+    <string name="label_text_view_no_overview">No overview details available for this movie.</string>
+    <string name="label_text_view_no_date">No date available.</string>
+    <string name="label_text_view_no_movies_as_favorite">No movies being selected as Favorite by you.</string>
+
+    <string name="sync_account_type">popularmovies.com</string>
+    <string name="content_authority">com.popularmovies.app</string>
+</resources>

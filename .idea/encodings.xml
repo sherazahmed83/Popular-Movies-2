@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/popularmovies/app/adapter/CustomReviewsListAdapter.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/popularmovies/app/adapter/CustomTrailersListAdapter.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/popularmovies/app/sync/PopularMoviesAuthenticator.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/popularmovies/app/sync/PopularMoviesAuthenticatorService.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/popularmovies/app/sync/PopularMoviesSyncAdapter.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/java/com/popularmovies/app/sync/PopularMoviesSyncService.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/res/drawable/gradient_bg.xml" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/res/drawable/gradient_bg_hover.xml" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/res/drawable/list_selector.xml" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/res/xml/authenticator.xml" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/app/src/main/res/xml/syncadapter.xml" charset="UTF-8" />
+  </component>
+</project>
