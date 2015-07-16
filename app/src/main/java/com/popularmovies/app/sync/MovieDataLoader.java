@@ -6,10 +6,12 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.support.annotation.IntDef;
 import android.text.format.Time;
 import android.util.Log;
 
 import com.popularmovies.app.MovieDetailsActivityFragment;
+import com.popularmovies.app.R;
 import com.popularmovies.app.Utility;
 import com.popularmovies.app.data.PopularMoviesContract;
 
@@ -21,6 +23,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Iterator;
@@ -33,11 +37,17 @@ import java.util.Vector;
 public class MovieDataLoader {
     public final String LOG_TAG = MovieDataLoader.class.getSimpleName();
     private static MovieDataLoader _instance = null;
-    private Integer mMovieIds[];
+    private String mMovieIds[];
     private Context mContext;
     private Time mDayTime = new Time();
     private int mJulianStartDay = 0;
     private String mSortByParamValue = "popularity.desc";
+    public static final int MOVIE_STATUS_OK = 0;
+    public static final int MOVIE_STATUS_UNKNOWN = 1;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({MOVIE_STATUS_OK, MOVIE_STATUS_UNKNOWN})
+    public @interface MovieStatus {}
 
     private MovieDataLoader() {}
 
@@ -62,35 +72,34 @@ public class MovieDataLoader {
         }
 
         if(mSortByParamValue.equals("favorite")) {
-            mMovieIds = loadFavoriteMovieIds();
-            loadFavoriteMovieData();
+            // Do nothing because favorite movie data not deleted at all
+            setMovieStatus(mContext, MOVIE_STATUS_OK);
         } else {
             mMovieIds = loadMovieData();
+            if (mMovieIds == null || mMovieIds.length == 0){
+                setMovieStatus(mContext, MOVIE_STATUS_UNKNOWN);
+                return;
+            }
+
+            setMovieStatus(mContext, MOVIE_STATUS_OK);
+            FetchMovieTrailersDataTask trailersDataTask = new FetchMovieTrailersDataTask();
+            trailersDataTask.execute();
         }
-
-        if (mMovieIds == null || mMovieIds.length == 0) return;
-
-        FetchMovieTrailersDataTask trailersDataTask = new FetchMovieTrailersDataTask();
-        trailersDataTask.execute();
-
-//        FetchMovieExtraDataTask extraDataTask = new FetchMovieExtraDataTask();
-//        extraDataTask.execute();
-
     }
 
-    private Integer[] loadFavoriteMovieIds () {
+    private String[] loadFavoriteMovieIds () {
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
         Set<String> favoritMovieIdsSet =  prefs.getStringSet(MovieDetailsActivityFragment.FAVORITE_MOVIE_IDS_SET_KEY, null);
 
         if (favoritMovieIdsSet != null) {
-            Integer[] array = new Integer[favoritMovieIdsSet.size()];
+            String[] array = new String[favoritMovieIdsSet.size()];
 
             Iterator<String> movieIdsIter = favoritMovieIdsSet.iterator();
 
             int i = 0;
             while (movieIdsIter.hasNext()) {
-                array[i] = Integer.valueOf(movieIdsIter.next());
+                array[i] = movieIdsIter.next();
                 i = i + 1;
             }
             return array;
@@ -99,7 +108,7 @@ public class MovieDataLoader {
         return null;
     }
 
-    private Integer[] loadMovieData() {
+    private String[] loadMovieData() {
 
         // These two need to be declared outside the try/catch
         // so that they can be closed in the finally block.
@@ -168,9 +177,9 @@ public class MovieDataLoader {
         return null;
     }
 
-    private Integer[] getMoviesDataFromJson(String moviesJsonStr)
+    private String[] getMoviesDataFromJson(String moviesJsonStr)
             throws JSONException {
-        Integer[] movieIds = new Integer[0];
+        String[] movieIds = new String[0];
 
         final String OWM_RESULTS_ARRAY = "results";
         final String OWM_ADULT = "adult";
@@ -198,53 +207,51 @@ public class MovieDataLoader {
             JSONArray moviesArray = moviesJson.getJSONArray(OWM_RESULTS_ARRAY);
 
             Vector<ContentValues> cVVector = new Vector<ContentValues>(moviesArray.length());
-            movieIds = new Integer[moviesArray.length()];
+            movieIds = new String[moviesArray.length()];
 
+            String[] favoriteMovieIds = loadFavoriteMovieIds();
             for(int i = 0; i < moviesArray.length(); i++) {
                 JSONObject movieJSONObject = moviesArray.getJSONObject(i);
 
-                Integer movieId = movieJSONObject.getInt(OWM_ID);
-                boolean isAdult = movieJSONObject.getBoolean(OWM_ADULT);
-                String backdropPath = movieJSONObject.getString(OWN_BACKDROP_PATH);
-                String originalLanguage = movieJSONObject.getString(OWM_ORIGINAL_LANGUAGE);
-                String originalTitle = movieJSONObject.getString(OWM_ORIGINAL_TITLE);
-                String overview = movieJSONObject.getString(OWM_OVERVIEW);
-                String releaseDate = movieJSONObject.getString(OWM_RELEASE_DATE);
-                String posterPath = movieJSONObject.getString(OWM_POSTER_PATH);
-                Double popularity = movieJSONObject.getDouble(OWM_POPULARITY);
-                String title = movieJSONObject.getString(OWM_TITLE);
-                boolean isVideo = movieJSONObject.getBoolean(OWM_VIDEO);
-                Double voteAverage = movieJSONObject.getDouble(OWM_VOTE_AVERAGE);
-                Integer voteCount = movieJSONObject.getInt(OWM_VOTE_COUNT);
+                String movieId = movieJSONObject.getString(OWM_ID);
 
-                ContentValues movieValues = new ContentValues();
+                if (!Utility.isMovieIdFavorite(favoriteMovieIds, movieId))
+                {
 
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_MOVIE_ID, movieId);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_IS_ADULT, isAdult);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_BACK_DROP_PATH, backdropPath);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_ORIGINAL_LANGUAGE, originalLanguage);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_ORIGINAL_TITLE, originalTitle);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_OVERVIEW, overview);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_RELEASE_DATE, releaseDate);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_POSTER_PATH, posterPath);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_POPULARITY, popularity);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_TITLE, title);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_IS_VIDEO, isVideo);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_VOTE_AVERAGE, voteAverage);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_VOTE_COUNT, voteCount);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_DATE, mDayTime.setJulianDay(mJulianStartDay));
+                    boolean isAdult = movieJSONObject.getBoolean(OWM_ADULT);
+                    String backdropPath = movieJSONObject.getString(OWN_BACKDROP_PATH);
+                    String originalLanguage = movieJSONObject.getString(OWM_ORIGINAL_LANGUAGE);
+                    String originalTitle = movieJSONObject.getString(OWM_ORIGINAL_TITLE);
+                    String overview = movieJSONObject.getString(OWM_OVERVIEW);
+                    String releaseDate = movieJSONObject.getString(OWM_RELEASE_DATE);
+                    String posterPath = movieJSONObject.getString(OWM_POSTER_PATH);
+                    Double popularity = movieJSONObject.getDouble(OWM_POPULARITY);
+                    String title = movieJSONObject.getString(OWM_TITLE);
+                    boolean isVideo = movieJSONObject.getBoolean(OWM_VIDEO);
+                    Double voteAverage = movieJSONObject.getDouble(OWM_VOTE_AVERAGE);
+                    Integer voteCount = movieJSONObject.getInt(OWM_VOTE_COUNT);
 
-                cVVector.add(movieValues);
-                movieIds[i] = movieId;
+                    ContentValues movieValues = new ContentValues();
 
-//                JSONArray genreIds = movieJSONObject.getJSONArray(OWM_GENRE_IDS);
-//                Integer[] genreIdsArray = new Integer[genreIds.length()];
-//
-//                for(int j = 0; j < genreIds.length(); j++) {
-//                    genreIdsArray[j] = genreIds.getInt(j);
-//                }
-//
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_MOVIE_ID, movieId);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_IS_ADULT, isAdult);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_BACK_DROP_PATH, backdropPath);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_ORIGINAL_LANGUAGE, originalLanguage);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_ORIGINAL_TITLE, originalTitle);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_OVERVIEW, overview);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_RELEASE_DATE, releaseDate);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_POSTER_PATH, posterPath);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_POPULARITY, popularity);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_TITLE, title);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_IS_VIDEO, isVideo);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_VOTE_AVERAGE, voteAverage);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_VOTE_COUNT, voteCount);
+                    movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_DATE, mDayTime.setJulianDay(mJulianStartDay));
 
+                    cVVector.add(movieValues);
+                    movieIds[i] = movieId;
+
+                }// end of if (checking favorite movieId)
             }// end of for
 
             int inserted = 0;
@@ -286,7 +293,7 @@ public class MovieDataLoader {
                 for (int i = 0; i < mMovieIds.length; i++) {
 
                     Uri builtUri = Uri.parse(MOVIES_BASE_URL).buildUpon()
-                            .appendPath(String.valueOf(mMovieIds[i]))
+                            .appendPath(mMovieIds[i])
                             .appendQueryParameter(API_KEY_PARAM, Utility.API_KEY)
                             .build();
 
@@ -430,123 +437,6 @@ public class MovieDataLoader {
         return -1;
     }
 
-    public class FetchMovieExtraDataTask extends AsyncTask<Void, Void, Void> {
-
-        private final String LOG_TAG = FetchMovieExtraDataTask.class.getSimpleName();
-
-
-        @Override
-        protected Void doInBackground(Void [] params) {
-
-
-            // These two need to be declared outside the try/catch
-            // so that they can be closed in the finally block.
-            HttpURLConnection urlConnection = null;
-            BufferedReader reader = null;
-
-            try {
-//                http://api.themoviedb.org/3/movie/31413?api_key=28edec251247e1d7328ab3ec7f483cd0
-                final String MOVIES_BASE_URL = "http://api.themoviedb.org/3/movie";
-                final String API_KEY_PARAM = "api_key";
-
-                for (int i = 0; i < mMovieIds.length; i++) {
-
-                    Uri builtUri = Uri.parse(MOVIES_BASE_URL).buildUpon()
-                            .appendPath(String.valueOf(mMovieIds[i]))
-                            .appendQueryParameter(API_KEY_PARAM, Utility.API_KEY)
-                            .build();
-
-                    URL url = new URL(builtUri.toString());
-
-                    // Create the request to OpenWeatherMap, and open the connection
-                    urlConnection = (HttpURLConnection) url.openConnection();
-                    urlConnection.setRequestMethod("GET");
-                    urlConnection.connect();
-
-                    // Read the input stream into a String
-                    InputStream inputStream = null;
-                    try {
-                        inputStream = urlConnection.getInputStream();
-                    }catch (Exception e) {}
-
-                    StringBuffer buffer = new StringBuffer();
-                    if (inputStream == null) {
-                        // Nothing to do.
-                        continue;
-                    }
-                    reader = new BufferedReader(new InputStreamReader(inputStream));
-
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        // Since it's JSON, adding a newline isn't necessary (it won't affect parsing)
-                        // But it does make debugging a *lot* easier if you print out the completed
-                        // buffer for debugging.
-                        buffer.append(line + "\n");
-                    }
-
-                    if (buffer.length() == 0) {
-                        // Stream was empty.  No point in parsing.
-                        continue;
-                    }
-
-                    getMoviesDetailsDataFromJson(buffer.toString());
-
-                }//end of for
-            } catch (IOException e) {
-                Log.e(LOG_TAG, "Error " + e.getMessage(), e);
-                e.printStackTrace();
-            } catch (JSONException e) {
-                Log.e(LOG_TAG, e.getMessage(), e);
-                e.printStackTrace();
-            } finally {
-                if (urlConnection != null) {
-                    urlConnection.disconnect();
-                }
-                if (reader != null) {
-                    try {
-                        reader.close();
-                    } catch (final IOException e) {
-                        Log.e(LOG_TAG, "Error closing stream", e);
-                    }
-                }
-            }
-            return null;
-        }
-
-        private void getMoviesDetailsDataFromJson(String moviesJsonStr)
-                throws JSONException {
-
-            final String OWM_MOVIE_ID = "id";
-            final String OWM_RUNTIME = "runtime";
-            final String OWM_STATUS = "status";
-            try {
-                JSONObject moviesJson = new JSONObject(moviesJsonStr);
-                Integer movieId = moviesJson.getInt(OWM_MOVIE_ID);
-                Integer runtime = moviesJson.getInt(OWM_RUNTIME);
-                String status = moviesJson.getString(OWM_STATUS);
-
-                ContentValues movieValues = new ContentValues();
-
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_MOVIE_ID, movieId);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_RUNTIME, runtime);
-                movieValues.put(PopularMoviesContract.MovieEntry.COLUMN_STATUS, status);
-
-                mContext.getContentResolver().update(PopularMoviesContract.MovieEntry.CONTENT_URI, movieValues,
-                        PopularMoviesContract.MovieEntry.COLUMN_MOVIE_ID + " = ?", new String[]{Integer.toString(movieId)});
-
-
-            } catch (JSONException e) {
-                Log.e(LOG_TAG, e.getMessage(), e);
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        protected void onPostExecute(Void params) {
-            FetchMovieTrailersDataTask trailersDataTask = new FetchMovieTrailersDataTask();
-            trailersDataTask.execute();
-        }
-    }
     public class FetchMovieTrailersDataTask extends AsyncTask<Void, Void, Void> {
 
         private final String LOG_TAG = FetchMovieTrailersDataTask.class.getSimpleName();
@@ -570,7 +460,7 @@ public class MovieDataLoader {
                 for (int i = 0; i < mMovieIds.length; i++) {
 
                     Uri builtUri = Uri.parse(MOVIES_BASE_URL).buildUpon()
-                            .appendPath(String.valueOf(mMovieIds[i]))
+                            .appendPath(mMovieIds[i])
                             .appendPath(VIDEOS)
                             .appendQueryParameter(API_KEY_PARAM, Utility.API_KEY)
                             .build();
@@ -724,7 +614,7 @@ public class MovieDataLoader {
                 for (int i = 0; i < mMovieIds.length; i++) {
 
                     Uri builtUri = Uri.parse(MOVIES_BASE_URL).buildUpon()
-                            .appendPath(String.valueOf(mMovieIds[i]))
+                            .appendPath(mMovieIds[i])
                             .appendPath(REVIEWS)
                             .appendQueryParameter(API_KEY_PARAM, Utility.API_KEY)
                             .build();
@@ -841,27 +731,44 @@ public class MovieDataLoader {
             return inserted;
         }
     }
+
     private void deleteOldData() {
+
+        String[] favoriteMovieIds = loadFavoriteMovieIds();
+        String criteriaString = null;
+
+        if (favoriteMovieIds != null && favoriteMovieIds.length > 0) {
+            String favoriteMovieIdsString = Utility.argsArrayToString(favoriteMovieIds);
+            criteriaString = PopularMoviesContract.MovieEntry.COLUMN_MOVIE_ID + " NOT IN (" + favoriteMovieIdsString + ")";
+        }
+
         // delete old data so we don't build up an endless history
-        int deleted = mContext.getContentResolver().delete(PopularMoviesContract.MovieReviewEntry.CONTENT_URI, null, null);
-//                PopularMoviesContract.MovieReviewEntry.COLUMN_DATE + " <= ?",
-//                new String[]{Long.toString(mDayTime.setJulianDay(mJulianStartDay - 1))});
+        int deleted = mContext.getContentResolver().delete(PopularMoviesContract.MovieReviewEntry.CONTENT_URI,
+                criteriaString,
+                null);
 
         Log.d(LOG_TAG, "Movie Review Data Deleting, " + deleted + " rows deleted.");
 
         // delete old data so we don't build up an endless history
-        deleted = mContext.getContentResolver().delete(PopularMoviesContract.MovieTrailerEntry.CONTENT_URI, null, null);
-//                PopularMoviesContract.MovieTrailerEntry.COLUMN_DATE + " <= ?",
-//                new String[]{Long.toString(mDayTime.setJulianDay(mJulianStartDay - 1))});
+        deleted = mContext.getContentResolver().delete(PopularMoviesContract.MovieTrailerEntry.CONTENT_URI,
+                criteriaString,
+                null);
 
         Log.d(LOG_TAG, "Movie Trailer Data Deleting, " + deleted + " rows deleted.");
 
         // delete old data so we don't build up an endless history
-        deleted = mContext.getContentResolver().delete(PopularMoviesContract.MovieEntry.CONTENT_URI, null, null);
-//                PopularMoviesContract.MovieEntry.COLUMN_DATE + " <= ?",
-//                new String[]{Long.toString(mDayTime.setJulianDay(mJulianStartDay - 1))});
+        deleted = mContext.getContentResolver().delete(PopularMoviesContract.MovieEntry.CONTENT_URI,
+                criteriaString,
+                null);
 
         Log.d(LOG_TAG, "Movie Data Deleting, " + deleted + " rows deleted.");
+    }
+
+    private static void setMovieStatus(Context context, @MovieStatus int movieStatus) {
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor spe = sp.edit();
+        spe.putInt(context.getString(R.string.pref_movie_status_key), movieStatus);
+        spe.commit();
     }
 
 }

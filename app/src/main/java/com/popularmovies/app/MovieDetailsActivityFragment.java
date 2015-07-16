@@ -15,9 +15,14 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
+import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.ShareActionProvider;
 import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -33,6 +38,8 @@ import com.google.android.youtube.player.YouTubeStandalonePlayer;
 import com.popularmovies.app.adapter.CustomReviewsListAdapter;
 import com.popularmovies.app.adapter.CustomTrailersListAdapter;
 import com.popularmovies.app.data.PopularMoviesContract;
+import com.popularmovies.app.sync.MovieDataLoader;
+import com.popularmovies.app.sync.PopularMoviesSyncAdapter;
 import com.squareup.picasso.Picasso;
 
 import java.util.Iterator;
@@ -78,7 +85,9 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
     private Toast mFavoriteToast;
     private String mMovieName;
     private boolean mIsPreferenceChanged = false;
-
+    private String mFirstTrailerUrl = null;
+    private MenuItem mShareMenuItem;
+    private ShareActionProvider mShareActionProvider;
 
     public static final String[] MOVIE_TRAILER_COLUMNS = {
             PopularMoviesContract.MovieTrailerEntry.TABLE_NAME + "." + PopularMoviesContract.MovieTrailerEntry._ID,
@@ -123,8 +132,26 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
     public static final int COL_REVIEW_DATE = 6;
 
     public MovieDetailsActivityFragment() {
+
     }
 
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        inflater.inflate(R.menu.menu_movie_details_fragment, menu);
+        // Retrieve the share menu item
+        mShareMenuItem = menu.findItem(R.id.action_share);
+
+        mShareMenuItem.setVisible(isVisible() && (mFirstTrailerUrl != null));
+
+        mShareActionProvider = (ShareActionProvider) MenuItemCompat.getActionProvider(mShareMenuItem);
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -138,7 +165,9 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
         }
 
         mContext = container.getContext();
-        mPrefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+        if (mPrefs == null) {
+            mPrefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        }
         mPrefs.registerOnSharedPreferenceChangeListener(this);
 
         initializeUI(rootView);
@@ -153,13 +182,7 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
                 mMovieNameView.setText(mMovieName);
 
             } else {
-                /*
-                int orientation = getResources().getConfiguration().orientation;
-        int sw = getResources().getConfiguration().smallestScreenWidthDp;
-        if (sw == 600 && orientation == Configuration.ORIENTATION_LANDSCAPE) {
 
-        }
-                 */
                 Toolbar toolbar = (Toolbar) rootView.findViewById(R.id.toolbar_detail);
                 ((AppCompatActivity) getActivity()).setSupportActionBar(toolbar);
 
@@ -294,11 +317,11 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
                 super.onChanged();
                 if (mIsPreferenceChanged) {
                     mTrailersEmptyView.setText("");
-                }
-                else if (mTrailersListAdapter.getCount() <= 0) {
+                } else if (mTrailersListAdapter.getCount() <= 0) {
                     mTrailersEmptyView.setText(R.string.label_text_view_empty_trailers);
                 }
                 mMovieTrailersListView.setEmptyView(mTrailersEmptyView);
+
             }
 
         });
@@ -309,9 +332,11 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
                 super.onChanged();
                 if (mIsPreferenceChanged) {
                     mReviewsEmptyView.setText("");
-                }
-                else if (mReviewsListAdapter.getCount() <= 0) {
+                } else if (mReviewsListAdapter.getCount() <= 0) {
                     mReviewsEmptyView.setText(R.string.label_text_view_empty_reviews);
+                    if (mShareMenuItem != null) {
+                        mShareMenuItem.setVisible(false);
+                    }
                 }
                 mMovieReviewsListView.setEmptyView(mReviewsEmptyView);
             }
@@ -374,11 +399,21 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
             case MOVIE_TRAILER_LOADER:
                 mTrailersListAdapter.swapCursor(cursor);
                 Utility.setDynamicHeight(mMovieTrailersListView);
+                populateFirstTrailerUrl(cursor);
                 break;
             case MOVIE_REVIEW_LOADER:
                 mReviewsListAdapter.swapCursor(cursor);
                 Utility.setDynamicHeight(mMovieReviewsListView);
+                setFocusUp();
                 break;
+        }
+    }
+
+    private void setFocusUp() {
+        if(mMovieImageView != null) {
+            mMovieImageView.setFocusable(true);
+            mMovieImageView.setFocusableInTouchMode(true);
+            mMovieImageView.requestFocus();
         }
     }
 
@@ -417,6 +452,7 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
             labelId = R.string.label_movie_marked_not_favorite;
             backgroundColorId = R.color.favorite_not_selected;
             textColorId = R.color.text_favorite_not_selected;
+            PopularMoviesSyncAdapter.syncImmediately(getActivity());
 
         } else {
             favoriteMovieIdsSet.add(Integer.toString(movieId));
@@ -445,6 +481,10 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
         boolean result = false;
         Set<String> favoriteMovieIdsSet = null;
 
+        if (mPrefs == null) {
+            mPrefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        }
+
         if (mPrefs.contains(FAVORITE_MOVIE_IDS_SET_KEY)) {
             favoriteMovieIdsSet = mPrefs.getStringSet(FAVORITE_MOVIE_IDS_SET_KEY, null);
         }
@@ -467,11 +507,47 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
         this.mTwoPane = mTwoPane;
     }
 
+
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if (key.equals(getString(R.string.pref_sort_order_key))) {
-            hideUIViews();
-            mIsPreferenceChanged = true;
+        if (mTwoPane) {
+            if (key.equals(getString(R.string.pref_sort_order_key))) {
+                    hideUIViews();
+                    mIsPreferenceChanged = true;
+                    if (mShareMenuItem != null) mShareMenuItem.setVisible(false);
+            }
+        }
+    }
+
+    private Intent createShareTrailerUrlIntent() {
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+
+        shareIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(Intent.EXTRA_TEXT, mFirstTrailerUrl);
+
+        return shareIntent;
+    }
+
+    private void populateFirstTrailerUrl(Cursor cursor) {
+        @MovieDataLoader.MovieStatus int status = Utility.getMovieStatus(mContext);
+        switch (status) {
+            case MovieDataLoader.MOVIE_STATUS_OK:
+                if (cursor != null && cursor.moveToFirst()) {
+                    mFirstTrailerUrl = "https://www.youtube.com/watch?v=" + cursor.getString(COL_KEY);
+                    if (mShareMenuItem != null) {
+                        mShareMenuItem.setVisible(true);
+                    }
+
+                    if (mShareActionProvider != null) {
+                        // If onLoadFinished happens before this, we can go ahead and set the share intent now.
+                        mShareActionProvider.setShareIntent(createShareTrailerUrlIntent());
+                    }
+
+                }
+                break;
+            default:
+                break;
         }
     }
 

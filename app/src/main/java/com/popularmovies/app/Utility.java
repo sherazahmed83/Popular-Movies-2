@@ -11,6 +11,8 @@ import android.view.ViewGroup;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 
+import com.popularmovies.app.sync.MovieDataLoader;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -123,5 +125,41 @@ public class Utility {
     public static boolean canResolveIntent(Intent intent, Context context) {
         List<ResolveInfo> resolveInfo = context.getPackageManager().queryIntentActivities(intent, 0);
         return resolveInfo != null && !resolveInfo.isEmpty();
+    }
+
+    public static String argsArrayToString(String[] args) {
+        StringBuilder argsBuilder = new StringBuilder();
+
+        final int argsCount = args.length;
+        for (int i = 0; i < argsCount; i++) {
+            argsBuilder.append(args[i]);
+
+            if (i < argsCount - 1) {
+                argsBuilder.append(",");
+            }
+        }
+
+        return argsBuilder.toString();
+    }
+
+    public static boolean isMovieIdFavorite(String [] favoriteMovieIds, String movieId) {
+        boolean result = false;
+
+        if (favoriteMovieIds == null || favoriteMovieIds.length == 0) return result;
+
+        for (int i = 0; i < favoriteMovieIds.length; i++) {
+            if (movieId.trim().equals(favoriteMovieIds[i].trim())){
+                result = true;
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    @SuppressWarnings("ResourceType")
+    public static @MovieDataLoader.MovieStatus int getMovieStatus(Context context) {
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
+        return sp.getInt(context.getString(R.string.pref_movie_status_key), MovieDataLoader.MOVIE_STATUS_UNKNOWN);
     }
 }

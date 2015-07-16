@@ -64,6 +64,7 @@
 
     <string name="pref_sort_order_label">Sort By</string>
     <string name="pref_sort_order_default">popularity.desc</string>
+    <string name="pref_sort_order_vote_average">vote_average.desc</string>
 
     <string-array name="pref_sort_order_list_titles">
         <item>Most Popular</item>

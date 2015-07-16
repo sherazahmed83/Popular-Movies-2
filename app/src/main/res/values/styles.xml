@@ -16,5 +16,8 @@
         <item name="android:background">?attr/colorPrimary</item>
         <item name="popupTheme">@style/Theme.AppCompat.Light</item>
     </style>
+	
+	<style name="MovieDetailsTheme" parent="AppTheme">
+	</style>
 
 </resources>

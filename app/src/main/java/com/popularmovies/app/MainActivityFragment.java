@@ -1,8 +1,10 @@
 package com.popularmovies.app;
 
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
@@ -128,7 +130,15 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        String sortOrderSelected = prefs.getString(getActivity().getString(R.string.pref_sort_order_key), null);
+
         String sortOrder = PopularMoviesContract.MovieEntry.COLUMN_POPULARITY + " DESC";
+
+        if(sortOrderSelected != null && sortOrderSelected.equals(getActivity().getString(R.string.pref_sort_order_vote_average))) {
+            sortOrder = MovieEntry.COLUMN_VOTE_AVERAGE + " DESC";
+        }
+
         Uri weatherForLocationUri = PopularMoviesContract.MovieEntry.buildMovieUri();
 
         return new CursorLoader(getActivity(),

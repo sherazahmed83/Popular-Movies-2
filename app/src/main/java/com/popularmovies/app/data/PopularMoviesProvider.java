@@ -333,15 +333,14 @@ public class PopularMoviesProvider  extends ContentProvider {
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
-        // Student: Start by getting a writable database
+
         final SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         final int match = sUriMatcher.match(uri);
-        Uri returnUri;
+
         int rowsDeleted;
         // this makes delete all rows return the number of rows deleted
         if ( null == selection ) selection = "1";
-        // Student: Use the uriMatcher to match the WEATHER and LOCATION URI's we are going to
-        // handle.  If it doesn't match these, throw an UnsupportedOperationException.
+
         switch (match) {
             case MOVIE: {
                 rowsDeleted = db.delete(
