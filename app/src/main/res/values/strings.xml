@@ -21,4 +21,8 @@
     <string name="content_authority">com.popularmovies.app</string>
     <string name="pref_movie_status_key" translatable="false">movie-status</string>
     <string name="share_title">Share movie trailer</string>
+    <string name="empty_movies_list">No Movies Information Available. The Network is not available to fetch movies data.</string>
+    <string name="empty_movies_list_no_network">No Movies Information Available. The Network is not available to fetch movies data.</string>
+    <string name="empty_movies_list_server_down">No Movies information available. The server is not returning data.</string>
+    <string name="empty_movies_list_server_error">No Movies information available. The server is not returning valid data. Please check for an updated version of Popular Movies.</string>
 </resources>

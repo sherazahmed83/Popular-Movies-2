@@ -10,7 +10,6 @@ import android.support.annotation.IntDef;
 import android.text.format.Time;
 import android.util.Log;
 
-import com.popularmovies.app.MovieDetailsActivityFragment;
 import com.popularmovies.app.R;
 import com.popularmovies.app.Utility;
 import com.popularmovies.app.data.PopularMoviesContract;
@@ -27,8 +26,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Iterator;
-import java.util.Set;
 import java.util.Vector;
 
 /**
@@ -44,9 +41,11 @@ public class MovieDataLoader {
     private String mSortByParamValue = "popularity.desc";
     public static final int MOVIE_STATUS_OK = 0;
     public static final int MOVIE_STATUS_UNKNOWN = 1;
+    public static final int MOVIE_STATUS_SERVER_DOWN = 1;
+    public static final int MOVIE_STATUS_SERVER_INVALID = 2;
 
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({MOVIE_STATUS_OK, MOVIE_STATUS_UNKNOWN})
+    @IntDef({MOVIE_STATUS_OK, MOVIE_STATUS_SERVER_DOWN, MOVIE_STATUS_SERVER_INVALID, MOVIE_STATUS_UNKNOWN})
     public @interface MovieStatus {}
 
     private MovieDataLoader() {}
@@ -71,42 +70,20 @@ public class MovieDataLoader {
             mSortByParamValue = Utility.getPreferredSortOrder(mContext);
         }
 
-        if(mSortByParamValue.equals("favorite")) {
+        if(mSortByParamValue.equals(context.getString(R.string.pref_sort_order_favorite))) {
             // Do nothing because favorite movie data not deleted at all
             setMovieStatus(mContext, MOVIE_STATUS_OK);
         } else {
             mMovieIds = loadMovieData();
             if (mMovieIds == null || mMovieIds.length == 0){
-                setMovieStatus(mContext, MOVIE_STATUS_UNKNOWN);
                 return;
             }
 
-            setMovieStatus(mContext, MOVIE_STATUS_OK);
             FetchMovieTrailersDataTask trailersDataTask = new FetchMovieTrailersDataTask();
             trailersDataTask.execute();
         }
     }
 
-    private String[] loadFavoriteMovieIds () {
-
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-        Set<String> favoritMovieIdsSet =  prefs.getStringSet(MovieDetailsActivityFragment.FAVORITE_MOVIE_IDS_SET_KEY, null);
-
-        if (favoritMovieIdsSet != null) {
-            String[] array = new String[favoritMovieIdsSet.size()];
-
-            Iterator<String> movieIdsIter = favoritMovieIdsSet.iterator();
-
-            int i = 0;
-            while (movieIdsIter.hasNext()) {
-                array[i] = movieIdsIter.next();
-                i = i + 1;
-            }
-            return array;
-        }
-
-        return null;
-    }
 
     private String[] loadMovieData() {
 
@@ -151,17 +128,20 @@ public class MovieDataLoader {
 
             if (buffer.length() == 0) {
                 // Stream was empty.  No point in parsing.
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_DOWN);
                 return null;
             }
-
+            setMovieStatus(mContext, MOVIE_STATUS_OK);
             return getMoviesDataFromJson(buffer.toString());
 
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error " + e.getMessage(), e);
             e.printStackTrace();
+            setMovieStatus(mContext, MOVIE_STATUS_SERVER_DOWN);
         } catch (JSONException e) {
             Log.e(LOG_TAG, e.getMessage(), e);
             e.printStackTrace();
+            setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
         } finally {
             if (urlConnection != null) {
                 urlConnection.disconnect();
@@ -209,7 +189,7 @@ public class MovieDataLoader {
             Vector<ContentValues> cVVector = new Vector<ContentValues>(moviesArray.length());
             movieIds = new String[moviesArray.length()];
 
-            String[] favoriteMovieIds = loadFavoriteMovieIds();
+            String[] favoriteMovieIds = Utility.loadFavoriteMovieIds(mContext);
             for(int i = 0; i < moviesArray.length(); i++) {
                 JSONObject movieJSONObject = moviesArray.getJSONObject(i);
 
@@ -260,16 +240,15 @@ public class MovieDataLoader {
                 ContentValues[] cvArray = new ContentValues[cVVector.size()];
                 cVVector.toArray(cvArray);
                 inserted = mContext.getContentResolver().bulkInsert(PopularMoviesContract.MovieEntry.CONTENT_URI, cvArray);
-
-//                notifyWeather();
             }
 
             Log.d(LOG_TAG, "Movie Initial Data Loading Task Complete. " + inserted + " rows inserted");
 
-
+            setMovieStatus(mContext, MOVIE_STATUS_OK);
         } catch (JSONException e) {
             Log.e(LOG_TAG, e.getMessage(), e);
             e.printStackTrace();
+            setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
         }
 
         return movieIds;
@@ -335,12 +314,15 @@ public class MovieDataLoader {
                 }//end of for
 
                 Log.d(LOG_TAG, "Movie Initial Data Loading Task Complete. " + inserted + " rows inserted");
+                setMovieStatus(mContext, MOVIE_STATUS_OK);
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Error " + e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_DOWN);
             } catch (JSONException e) {
                 Log.e(LOG_TAG, e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -427,11 +409,12 @@ public class MovieDataLoader {
                 cVVector.toArray(cvArray);
                 inserted = mContext.getContentResolver().bulkInsert(PopularMoviesContract.MovieEntry.CONTENT_URI, cvArray);
             }
+            setMovieStatus(mContext, MOVIE_STATUS_OK);
             return inserted;
-
         } catch (JSONException e) {
             Log.e(LOG_TAG, e.getMessage(), e);
             e.printStackTrace();
+            setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
         }
 
         return -1;
@@ -494,18 +477,22 @@ public class MovieDataLoader {
 
                     if (buffer.length() == 0) {
                         // Stream was empty.  No point in parsing.
+                        setMovieStatus(mContext, MOVIE_STATUS_SERVER_DOWN);
                         continue;
                     }
 
                     inserted = inserted + getTrailersDataFromJson(buffer.toString());
 
                 }//end of for
+                setMovieStatus(mContext, MOVIE_STATUS_OK);
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Error " + e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_DOWN);
             } catch (JSONException e) {
                 Log.e(LOG_TAG, e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -577,10 +564,11 @@ public class MovieDataLoader {
                     cVVector.toArray(cvArray);
                     inserted = mContext.getContentResolver().bulkInsert(PopularMoviesContract.MovieTrailerEntry.CONTENT_URI, cvArray);
                 }
-
+                setMovieStatus(mContext, MOVIE_STATUS_OK);
             } catch (JSONException e) {
                 Log.e(LOG_TAG, e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
             }
             return inserted;
         }
@@ -655,12 +643,15 @@ public class MovieDataLoader {
                     inserted = inserted + getReviewsDataFromJson(buffer.toString());
 
                 }//end of for
+                setMovieStatus(mContext, MOVIE_STATUS_OK);
             } catch (IOException e) {
                 Log.e(LOG_TAG, "Error " + e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_DOWN);
             } catch (JSONException e) {
                 Log.e(LOG_TAG, e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -723,10 +714,11 @@ public class MovieDataLoader {
                     cVVector.toArray(cvArray);
                     inserted = mContext.getContentResolver().bulkInsert(PopularMoviesContract.MovieReviewEntry.CONTENT_URI, cvArray);
                 }
-
+                setMovieStatus(mContext, MOVIE_STATUS_OK);
             } catch (JSONException e) {
                 Log.e(LOG_TAG, e.getMessage(), e);
                 e.printStackTrace();
+                setMovieStatus(mContext, MOVIE_STATUS_SERVER_INVALID);
             }
             return inserted;
         }
@@ -734,7 +726,7 @@ public class MovieDataLoader {
 
     private void deleteOldData() {
 
-        String[] favoriteMovieIds = loadFavoriteMovieIds();
+        String[] favoriteMovieIds = Utility.loadFavoriteMovieIds(mContext);
         String criteriaString = null;
 
         if (favoriteMovieIds != null && favoriteMovieIds.length > 0) {

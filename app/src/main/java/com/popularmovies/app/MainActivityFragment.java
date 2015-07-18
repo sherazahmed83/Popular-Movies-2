@@ -19,6 +19,7 @@ import android.widget.TextView;
 import com.popularmovies.app.adapter.GridViewMoviesAdapter;
 import com.popularmovies.app.data.PopularMoviesContract;
 import com.popularmovies.app.data.PopularMoviesContract.MovieEntry;
+import com.popularmovies.app.sync.MovieDataLoader;
 import com.popularmovies.app.sync.PopularMoviesSyncAdapter;
 
 /**
@@ -152,6 +153,7 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
     @Override
     public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
         mGridViewMoviesAdapter.swapCursor(cursor);
+        updateEmptyView();
     }
 
     @Override
@@ -170,4 +172,32 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
         this.mTwoPane = mTwoPane;
     }
 
+    private void updateEmptyView() {
+        if (mGridViewMoviesAdapter.getCount() == 0) {
+            TextView emptyTextView = (TextView) getView().findViewById(R.id.gridView_empty);
+            if (null != emptyTextView) {
+                int message = R.string.empty_movies_list;
+                @MovieDataLoader.MovieStatus int status = Utility.getMovieStatus(getActivity());
+                switch (status) {
+                    case MovieDataLoader.MOVIE_STATUS_SERVER_DOWN:
+                        message = R.string.empty_movies_list_server_down;
+                        break;
+                    case MovieDataLoader.MOVIE_STATUS_SERVER_INVALID:
+                        message = R.string.empty_movies_list_server_error;
+                        break;
+                    default:
+                        String [] favoriteMovieIds = Utility.loadFavoriteMovieIds(getActivity());
+                        if ((favoriteMovieIds == null || favoriteMovieIds.length <= 0) &&
+                                Utility.getPreferredSortOrder(getActivity()).equals(getActivity().getString(R.string.pref_sort_order_favorite))) {
+                            message = R.string.label_text_view_no_movies_as_favorite;
+                        }
+                        else if (!Utility.isNetworkConnected(getActivity())) {
+                            message = R.string.empty_movies_list_no_network;
+                        }
+                        break;
+                }
+                emptyTextView.setText(message);
+            }
+        }
+    }
 }

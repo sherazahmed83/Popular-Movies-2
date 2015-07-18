@@ -547,6 +547,9 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
                 }
                 break;
             default:
+                if (mShareMenuItem != null) {
+                    mShareMenuItem.setVisible(false);
+                }
                 break;
         }
     }

@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,7 +19,9 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Created by Sheraz on 7/10/2015.
@@ -67,6 +71,19 @@ public class Utility {
         }
     }
 
+    /**
+     *
+     * This function is taken during search over internet
+     * for making my list of items to show with individual heights
+     * for 2 list views with different heights. And then it is modified
+     * according to the MeasureSpec
+     *
+     * Original Source:
+     * http://stackoverflow.com/questions/17693578/android-how-to-display-2-listviews-in-one-activity-one-after-the-other
+     *
+     *
+     * @param mListView
+     */
     public static void setDynamicHeight(ListView mListView) {
         ListAdapter mListAdapter = mListView.getAdapter();
         if (mListAdapter == null) {
@@ -157,9 +174,40 @@ public class Utility {
         return result;
     }
 
+    public static String[] loadFavoriteMovieIds (Context context) {
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        Set<String> favoritMovieIdsSet =  prefs.getStringSet(MovieDetailsActivityFragment.FAVORITE_MOVIE_IDS_SET_KEY, null);
+
+        if (favoritMovieIdsSet != null) {
+            String[] array = new String[favoritMovieIdsSet.size()];
+
+            Iterator<String> movieIdsIter = favoritMovieIdsSet.iterator();
+
+            int i = 0;
+            while (movieIdsIter.hasNext()) {
+                array[i] = movieIdsIter.next();
+                i = i + 1;
+            }
+            return array;
+        }
+
+        return null;
+    }
+
+
     @SuppressWarnings("ResourceType")
     public static @MovieDataLoader.MovieStatus int getMovieStatus(Context context) {
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
         return sp.getInt(context.getString(R.string.pref_movie_status_key), MovieDataLoader.MOVIE_STATUS_UNKNOWN);
+    }
+
+    public static boolean isNetworkConnected(Context context) {
+        ConnectivityManager cm =
+                (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null &&
+                activeNetwork.isConnectedOrConnecting();
     }
 }
