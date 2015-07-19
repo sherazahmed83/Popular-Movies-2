@@ -510,11 +510,11 @@ public class MovieDetailsActivityFragment extends Fragment  implements LoaderMan
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        if (mTwoPane) {
+        if (isAdded()) {
             if (key.equals(getString(R.string.pref_sort_order_key))) {
-                    hideUIViews();
-                    mIsPreferenceChanged = true;
-                    if (mShareMenuItem != null) mShareMenuItem.setVisible(false);
+                hideUIViews();
+                mIsPreferenceChanged = true;
+                if (mShareMenuItem != null) mShareMenuItem.setVisible(false);
             }
         }
     }
